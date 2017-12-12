@@ -227,7 +227,7 @@ catch {throw "Could not load the required VMware.VimAutomation.Vds cmdlets"}
 			        #Put host in Maintenance Mode
 					OutputLogData -category "INFO" -message "Entering Maintenance Mode on $esxHost"
 					Set-VMhost $esxHost -State maintenance -Evacuate | Out-Null  #May need to change State to ConnectionState in the future	        
-			        OutputLogData -category "INFO" -message "Host $esxHost in Maintenance Mode. "
+			        	OutputLogData -category "INFO" -message "Host $esxHost in Maintenance Mode. "
 					}
 				Else 
                     {
