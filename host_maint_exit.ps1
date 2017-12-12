@@ -221,7 +221,7 @@ catch {throw "Could not load the required VMware.VimAutomation.Vds cmdlets"}
 			        }
 			        #Connected State implies host is out of maintenance mode
 			        Until ($myvarresult -like '*Connected*')	
-                    OutputLogData -category "INFO" -message "Host $esxhost now in Connected State"
+                    		OutputLogData -category "INFO" -message "Host $esxhost now in Connected State"
                 
 				#Power-on CVM
 			    OutputLogData -category "INFO" -message "Starting $myvarCVMname"
