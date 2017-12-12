@@ -237,7 +237,7 @@ catch {throw "Could not load the required VMware.VimAutomation.Vds cmdlets"}
                   
 			} ## end CVM Shutdown and Maintenance Loop
 		}#endif
-        OutputLogData -category "INFO" -message "Disconnecting from vCenter server $vcenter..."
+        	OutputLogData -category "INFO" -message "Disconnecting from vCenter server $vcenter..."
 		Disconnect-viserver -Confirm:$False #cleanup after ourselves and disconnect from vcenter
 	#}#end foreach vCenter
 #endregion
