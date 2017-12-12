@@ -254,9 +254,9 @@ catch {throw "Could not load the required VMware.VimAutomation.Vds cmdlets"}
 	Remove-Variable myvar* -ErrorAction SilentlyContinue
 	Remove-Variable ErrorActionPreference -ErrorAction SilentlyContinue
 	Remove-Variable help -ErrorAction SilentlyContinue
-    Remove-Variable history -ErrorAction SilentlyContinue
+    	Remove-Variable history -ErrorAction SilentlyContinue
 	Remove-Variable log -ErrorAction SilentlyContinue
 	Remove-Variable vcenter -ErrorAction SilentlyContinue
-    Remove-Variable debugme -ErrorAction SilentlyContinue
+    	Remove-Variable debugme -ErrorAction SilentlyContinue
 	Remove-Variable esxhost -ErrorAction SilentlyContinue
 #endregion
