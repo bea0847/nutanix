@@ -11,4 +11,7 @@ host_maint_enter.ps1: customer request - Scripted Nutanix cluster status validat
 
 host_maint_enter.ps1: customer request - Scripted Host to exit Maintenance Mode, start CVM, wait for valid Nutanix cluster status UP.
 
+new-MA-Container.ps1: custerom request - Script creates a MetroAvailability Container between two Nutanix Clusters
+
+
 Please report any bugs here. 
