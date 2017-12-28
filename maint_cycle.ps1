@@ -15,14 +15,18 @@
   VMware vCenter server hostname. Default is localhost. You can specify several hostnames by separating entries with commas.
 .PARAMETER cluster
   Name of compute cluster. If not specified, script fails
+.PARAMETER duration
+  Sets the duration of time the Hosts will stay in Maintenance mode (in seconds)
+.PARAMETER CVMCredentials
+  Account Credentials to access CVMs within the Nutanix Cluster
 .EXAMPLE
   Configure all CVMs in the vCenter server of your choice:
-  PS> .\maint_cycle.ps1 -vcenter myvcenter.local -cluster NTNXCluster1
+  PS> .\maint_cycle.ps1 -vcenter myvcenter.local -cluster NTNXCluster1 -duration 600
 .LINK
   http://www.nutanix.com/services
 .NOTES
   Author: Mike Beadle (mbeadle@nutanix.com), Script Flow, Logic, Comments, and Sarcasm by Stephane Bourdeaud.
-  Revision: December 6th, 2017
+  Revision: December 28th, 2017
 #>
 
 #region parameters
@@ -37,8 +41,11 @@ Param
     [parameter(mandatory = $false)] [switch]$history,
     [parameter(mandatory = $false)] [switch]$log,
     [parameter(mandatory = $false)] [switch]$debugme,
-    [parameter(mandatory = $false)] [string]$vcenter,
-	[parameter(mandatory = $false)] [string]$cluster
+    [parameter(mandatory = $true)] [string]$vcenter,
+	[parameter(mandatory = $true)] [string]$cluster,
+    [parameter(mandatory = $true)] [string]$duration,
+    [parameter(mandatory = $false)] [PSCredential]$CVMCred,
+    [parameter(mandatory = $false)] [PSCredential]$VCenterCred
 )
 #endregion
 
@@ -111,6 +118,7 @@ $HistoryText = @'
  Date       By   Updates (newest updates at the top)
  ---------- ---- ---------------------------------------------------------------
  12/6/2017   MB   Initial release.
+ 12/26/2017  MB   Update CVM Credentials and sleep timer
  
 ################################################################################
 '@
@@ -150,6 +158,8 @@ catch {throw "Could not load the required VMware.VimAutomation.Vds cmdlets"}
 	$myvarvCenterServers = @() #used to store the list of all the vCenter servers we must connect to
 	$myvarOutputLogFile = (Get-Date -UFormat "%Y_%m_%d_%H_%M_")
 	$myvarOutputLogFile += "OutputLog.log"
+    $CVMCred = Get-Credential -Message "Enter User/ Pass for Nutanix CVM"
+    $VcenterCred = Get-Credential -Message "Enter User/ Pass for vCenter $vcenter"
 #endregion
 
 #region parameters validation
@@ -169,7 +179,7 @@ catch {throw "Could not load the required VMware.VimAutomation.Vds cmdlets"}
 	foreach ($myvarvCenter in $myvarvCenterServers)	
 	{
 		OutputLogData -category "INFO" -message "Connecting to vCenter server $myvarvCenter..."
-		if (!($myvarvCenterObject = Connect-VIServer $myvarvCenter))#make sure we connect to the vcenter server OK...
+		if (!($myvarvCenterObject = Connect-VIServer $myvarvCenter -User $VCenterCred.UserName -Password $VCenterCred.GetNetworkCredential().Password))#make sure we connect to the vcenter server OK...
 		{#make sure we can connect to the vCenter server
 			$myvarerror = $error[0].Exception.Message
 			OutputLogData -category "ERROR" -message "$myvarerror"
@@ -202,7 +212,7 @@ catch {throw "Could not load the required VMware.VimAutomation.Vds cmdlets"}
     			$myvarHost = Get-VMHost -VM $myvarCVM
 				
 			    #Using the default user/pass
-			    New-SshSession -ComputerName $myvarCVMip -Username 'nutanix' -Password 'nutanix/4u' | Out-Null
+			    New-SshSession -ComputerName $myvarCVMip -Username $CVMCred.UserName -Password $CVMCred.GetNetworkCredential().Password | Out-N
     
 			    #Check cluster status to ensure all servcies on all CVMs are healthy. 
 			    $myvarresult = Invoke-SshCommand -ComputerName $myvarCVMip -Command '/home/nutanix/cluster/bin/cluster status | grep -v UP' -Quiet
@@ -220,10 +230,10 @@ catch {throw "Could not load the required VMware.VimAutomation.Vds cmdlets"}
 			        #Put host in Maintenance Mode
 					OutputLogData -category "INFO" -message "Entering Maintenance Mode on $myvarHost"
 					Set-VMhost $myvarHost -State maintenance -Evacuate | Out-Null  #May need to change State to ConnectionState in the future	        
-			        OutputLogData -category "INFO" -message "Host $myvarHost in Maintenance Mode.  Sleeping for 10 minutes"
+			        OutputLogData -category "INFO" -message "Host $myvarHost in Maintenance Mode.  Sleeping for $duration seconds"
 					
-					#Wait for specified period of time before coming out of Maintenance Mode - Currently 90 seconds for DEV
-					sleep 90
+					#Wait for specified period of time (-duration switch) before coming out of Maintenance Mode
+					sleep $duration
 					
 					# Exit maintenance mode
 					OutputLogData -category "INFO" -message "Exiting Maintenance mode on $myvarHost"
@@ -242,7 +252,7 @@ catch {throw "Could not load the required VMware.VimAutomation.Vds cmdlets"}
 			        #Check that the services are started on the CVM before cycling the next CVM, check cluster status output for DOWN
         
 			        Do {
-							New-SshSession -ComputerName $myvarCVMip -Username 'nutanix' -Password 'nutanix/4u' | Out-Null
+							New-SshSession -ComputerName $myvarCVMip -Username $CVMCred.UserName -Password $CVMCred.GetNetworkCredential().Password  | Out-Null
 							$myvarresult = Invoke-SshCommand -ComputerName $myvarCVMip -Command "/home/nutanix/cluster/bin/cluster status | grep -v UP" -Quiet
 							Remove-SshSession -RemoveAll | Out-Null
             
@@ -283,9 +293,12 @@ catch {throw "Could not load the required VMware.VimAutomation.Vds cmdlets"}
 	Remove-Variable myvar* -ErrorAction SilentlyContinue
 	Remove-Variable ErrorActionPreference -ErrorAction SilentlyContinue
 	Remove-Variable help -ErrorAction SilentlyContinue
-     	Remove-Variable history -ErrorAction SilentlyContinue
+    Remove-Variable history -ErrorAction SilentlyContinue
 	Remove-Variable log -ErrorAction SilentlyContinue
 	Remove-Variable vcenter -ErrorAction SilentlyContinue
-    	Remove-Variable debugme -ErrorAction SilentlyContinue
+    Remove-Variable CVMCred -ErrorAction SilentlyContinue
+    Remove-Variable vCenterCred -ErrorAction SilentlyContinue
+    Remove-Variable debugme -ErrorAction SilentlyContinue
 	Remove-Variable cluster -ErrorAction SilentlyContinue
+    Remove-Variable duration -ErrorAction SilentlyContinue
 #endregion
