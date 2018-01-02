@@ -17,16 +17,18 @@
   Name of compute cluster. If not specified, script fails
 .PARAMETER duration
   Sets the duration of time the Hosts will stay in Maintenance mode (in seconds)
-.PARAMETER CVMCredentials
+.PARAMETER CVMCred
   Account Credentials to access CVMs within the Nutanix Cluster
+.PARAMETER VCenterCred
+  Account Credentials to access vCenter
 .EXAMPLE
-  Configure all CVMs in the vCenter server of your choice:
+  Roll all ESX hosts in the vCenter server of your choice thru maintenance mode for a duration:
   PS> .\maint_cycle.ps1 -vcenter myvcenter.local -cluster NTNXCluster1 -duration 600
 .LINK
   http://www.nutanix.com/services
 .NOTES
   Author: Mike Beadle (mbeadle@nutanix.com), Script Flow, Logic, Comments, and Sarcasm by Stephane Bourdeaud.
-  Revision: December 28th, 2017
+  Revision: January 1st, 2018
 #>
 
 #region parameters
@@ -119,6 +121,7 @@ $HistoryText = @'
  ---------- ---- ---------------------------------------------------------------
  12/6/2017   MB   Initial release.
  12/26/2017  MB   Update CVM Credentials and sleep timer
+ 1/2/2018    MB   Cleanup
  
 ################################################################################
 '@
