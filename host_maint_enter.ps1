@@ -17,6 +17,10 @@
   VMware vCenter server hostname. Default is localhost. You can specify several hostnames by separating entries with commas.
 .PARAMETER esxhost
   Name of ESXi host. If not specified, script fails
+.PARAMETER CVMCred
+  Account Credentials to access CVMs within the Nutanix Cluster
+.PARAMETER VCenterCred
+  Account Credentials to access vCenter
 .EXAMPLE
   Configure all CVMs in the vCenter server of your choice:
   PS> .\host_maint_enter.ps1 -vcenter myvcenter.local -esxhost myhost-01.local
@@ -24,7 +28,7 @@
   http://www.nutanix.com/services
 .NOTES
   Author: Mike Beadle (mbeadle@nutanix.com), Script Flow, Logic, Comments, and Sarcasm by Stephane Bourdeaud.
-  Revision: December 7th, 2017
+  Revision: January 2nd, 2018
 #>
 
 #region parameters
@@ -40,7 +44,9 @@ Param
     [parameter(mandatory = $false)] [switch]$log,
     [parameter(mandatory = $false)] [switch]$debugme,
     [parameter(mandatory = $false)] [string]$vcenter,
-	[parameter(mandatory = $false)] [string]$esxhost
+	[parameter(mandatory = $false)] [string]$esxhost,
+    [parameter(mandatory = $false)] [PSCredential]$CVMCred,
+    [parameter(mandatory = $false)] [PSCredential]$VCenterCred
 )
 #endregion
 
@@ -113,10 +119,10 @@ $HistoryText = @'
  Date       By   Updates (newest updates at the top)
  ---------- ---- ---------------------------------------------------------------
  12/6/2017   MB   Initial release.
- 
+ 1/2/2018    MB   Updated to collect credentials instead of hardcoding
 ################################################################################
 '@
-$myvarScriptName = ".\maint_cycle.ps1"
+$myvarScriptName = ".\host_maint_enter.ps1"
  
 if ($help) {get-help $myvarScriptName; exit}
 if ($History) {$HistoryText; exit}
@@ -152,6 +158,8 @@ catch {throw "Could not load the required VMware.VimAutomation.Vds cmdlets"}
 	$myvarvCenterServers = @() #used to store the list of all the vCenter servers we must connect to
 	$myvarOutputLogFile = (Get-Date -UFormat "%Y_%m_%d_%H_%M_")
 	$myvarOutputLogFile += "OutputLog.log"
+    $CVMCred = Get-Credential -Message "Enter User/ Pass for Nutanix CVM"
+    $VcenterCred = Get-Credential -Message "Enter User/ Pass for vCenter $vcenter"
 #endregion
 
 #region parameters validation
@@ -171,7 +179,7 @@ catch {throw "Could not load the required VMware.VimAutomation.Vds cmdlets"}
 	foreach ($myvarvCenter in $myvarvCenterServers)	
 	{
 		OutputLogData -category "INFO" -message "Connecting to vCenter server $myvarvCenter..."
-		if (!($myvarvCenterObject = Connect-VIServer $myvarvCenter))#make sure we connect to the vcenter server OK...
+		if (!($myvarvCenterObject = Connect-VIServer $myvarvCenter -User $VCenterCred.UserName -Password $VCenterCred.GetNetworkCredential().Password))#make sure we connect to the vcenter server OK...
 		{#make sure we can connect to the vCenter server
 			$myvarerror = $error[0].Exception.Message
 			OutputLogData -category "ERROR" -message "$myvarerror"
@@ -208,7 +216,7 @@ catch {throw "Could not load the required VMware.VimAutomation.Vds cmdlets"}
     			$myvarCVMname = $myvarCVM.Name
 				
                 #Using the default user/pass
-			    New-SshSession -ComputerName $myvarCVMip -Username 'nutanix' -Password 'nutanix/4u' | Out-Null
+			    New-SshSession -ComputerName $myvarCVMip -Username $CVMCred.UserName -Password $CVMCred.GetNetworkCredential().Password | Out-Null
     
 			    #Check cluster status to validate all services are healthy.  
 			    OutputLogData -category "INFO" -message "Checking Nutanix Cluster Status Health, this may take a bit depending on the cluster size..."
@@ -227,7 +235,7 @@ catch {throw "Could not load the required VMware.VimAutomation.Vds cmdlets"}
 			        #Put host in Maintenance Mode
 					OutputLogData -category "INFO" -message "Entering Maintenance Mode on $esxHost"
 					Set-VMhost $esxHost -State maintenance -Evacuate | Out-Null  #May need to change State to ConnectionState in the future	        
-			        	OutputLogData -category "INFO" -message "Host $esxHost in Maintenance Mode. "
+			        OutputLogData -category "INFO" -message "Host $esxHost in Maintenance Mode. "
 					}
 				Else 
                     {
@@ -237,7 +245,7 @@ catch {throw "Could not load the required VMware.VimAutomation.Vds cmdlets"}
                   
 			} ## end CVM Shutdown and Maintenance Loop
 		}#endif
-        	OutputLogData -category "INFO" -message "Disconnecting from vCenter server $vcenter..."
+        OutputLogData -category "INFO" -message "Disconnecting from vCenter server $vcenter..."
 		Disconnect-viserver -Confirm:$False #cleanup after ourselves and disconnect from vcenter
 	#}#end foreach vCenter
 #endregion
@@ -254,9 +262,9 @@ catch {throw "Could not load the required VMware.VimAutomation.Vds cmdlets"}
 	Remove-Variable myvar* -ErrorAction SilentlyContinue
 	Remove-Variable ErrorActionPreference -ErrorAction SilentlyContinue
 	Remove-Variable help -ErrorAction SilentlyContinue
-    	Remove-Variable history -ErrorAction SilentlyContinue
+    Remove-Variable history -ErrorAction SilentlyContinue
 	Remove-Variable log -ErrorAction SilentlyContinue
 	Remove-Variable vcenter -ErrorAction SilentlyContinue
-    	Remove-Variable debugme -ErrorAction SilentlyContinue
+    Remove-Variable debugme -ErrorAction SilentlyContinue
 	Remove-Variable esxhost -ErrorAction SilentlyContinue
 #endregion
